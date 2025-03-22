@@ -1,0 +1,30 @@
+# Ignore all .exe files
+*.exe
+
+# Ignore object files and compiled binaries
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+
+# Ignore debug and release directories (common in many IDEs)
+Debug/
+Release/
+
+# Ignore VS Code and Visual Studio specific files
+.vscode/
+*.vcxproj*
+*.sln
+*.user
+*.ncb
+*.sdf
+*.psess
+*.pdb
+*.ipch
+
+# Ignore CMake generated files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+
