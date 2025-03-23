@@ -1,5 +1,6 @@
 #include <bits/stdc++.h>
 #include "parser.h"
+#include "visualizer.h"
 
 #define all(v) v.begin(), v.end()
 
@@ -62,6 +63,17 @@ double calculate_response_ratio(int wait_time, int service_time)
     return (wait_time + service_time)*1.0 / service_time;
 }
 
+struct PerformanceMetrics
+{
+    double avg_waiting_time;
+    double cpu_utilization;
+    double throughput;
+};
+
+map<string, PerformanceMetrics> algorithmMetrics; // Stores results for each algorithm
+
+
+
 void fillInWaitTime(){
     for (int i = 0; i < process_count; i++)
     {
@@ -73,6 +85,8 @@ void fillInWaitTime(){
         }
     }
 }
+
+
 
 void firstComeFirstServe()
 {
@@ -484,6 +498,66 @@ void printNormTurn()
 	else
         printf(" %2.2f|\n",(1.0 * sum / normTurn.size()));
 }
+
+
+void calculate_performance_metrics(string algorithm_name)
+{
+    double total_waiting_time = 0;
+    int total_service_time = 0;
+    int completed_processes = 0;
+
+    for (int i = 0; i < process_count; i++)
+    {
+        int arrivalTime = getArrivalTime(processes[i]);
+        int serviceTime = getServiceTime(processes[i]);
+
+        int waitingTime = turnAroundTime[i] - serviceTime; // Waiting Time = Turnaround Time - Service Time
+        total_waiting_time += waitingTime;
+        total_service_time += serviceTime;
+        completed_processes++;
+    }
+
+    // Compute Metrics
+    double avg_waiting_time = total_waiting_time / process_count;
+    double cpu_utilization = (total_service_time * 100.0) / last_instant;
+    double throughput = completed_processes * 1.0 / last_instant;
+
+    // Store results
+    algorithmMetrics[algorithm_name] = {avg_waiting_time, cpu_utilization, throughput};
+
+    // Print individual algorithm's results
+    cout << "\n==== Performance Metrics for " << algorithm_name << " ====\n";
+    cout << "Average Waiting Time   : " << fixed << setprecision(2) << avg_waiting_time << " units\n";
+    cout << "CPU Utilization        : " << fixed << setprecision(2) << cpu_utilization << "%\n";
+    cout << "Throughput            : " << fixed << setprecision(2) << throughput << " processes/unit time\n";
+    cout << "====================================\n\n";
+}
+
+
+
+
+void parse_compare()
+{
+    if (operation == "compare")
+    {
+        cout << "\n========================================\n";
+        cout << "  Comparing Performance of Algorithms \n";
+        cout << "========================================\n";
+        cout << "Algorithms Selected for Comparison:\n";
+
+        for (auto &algo : algorithms)
+        {
+            int algorithm_id = algo.first - '0';
+            if (algorithm_id == 2)
+                cout << "- " << ALGORITHMS[algorithm_id] << algo.second << endl;
+            else
+                cout << "- " << ALGORITHMS[algorithm_id] << endl;
+        }
+        cout << "========================================\n";
+    }
+}
+
+
 void printStats(int algorithm_index)
 {
     printAlgorithm(algorithm_index);
@@ -493,10 +567,27 @@ void printStats(int algorithm_index)
     printFinishTime();
     printTurnAroundTime();
     printNormTurn();
+
+
+    string algorithm_name;
+    int algorithm_id = algorithms[algorithm_index].first - '0';
+
+    if (algorithm_id == 2)
+        algorithm_name = ALGORITHMS[algorithm_id] + to_string(algorithms[algorithm_index].second);
+    else
+        algorithm_name = ALGORITHMS[algorithm_id];
+
+    // Compute and store metrics
+    calculate_performance_metrics(algorithm_name);
 }
 
 void printTimeline(int algorithm_index)
-{
+{   
+    if (coloredVisualization) {
+        printColoredTimeline(algorithm_index);
+        return;
+    }
+    
     for (int i = 0; i <= last_instant; i++)
         cout << i % 10<<" ";
     cout <<"\n";
@@ -557,15 +648,134 @@ void execute_algorithm(char algorithm_id, int quantum,string operation)
 int main()
 {
     parse();
-    for (int idx = 0; idx < (int)algorithms.size(); idx++)
+
+    
+    if (operation == "compare")
     {
-        clear_timeline();
-        execute_algorithm(algorithms[idx].first, algorithms[idx].second,operation);
-        if (operation == TRACE)
-            printTimeline(idx);
-        else if (operation == SHOW_STATISTICS)
-            printStats(idx);
-        cout << "\n";
+        for (int idx = 0; idx < (int)algorithms.size(); idx++)
+        {
+            clear_timeline();
+            execute_algorithm(algorithms[idx].first, algorithms[idx].second, operation);
+            calculate_performance_metrics(ALGORITHMS[algorithms[idx].first - '0']); // Collect metrics for comparison
+        }
+        string best_algo, worst_algo;
+        string worst_util_algo, worst_throughput_algo;
+    
+        double min_waiting_time = DBL_MAX, max_waiting_time = DBL_MIN;
+        double max_utilization = DBL_MIN, min_utilization = DBL_MAX;
+        double max_throughput = DBL_MIN, min_throughput = DBL_MAX;
+    
+        // Finding best & worst based on waiting time + efficiency
+        for (auto &entry : algorithmMetrics) {
+            const string& algo = entry.first;
+            double waiting_time = entry.second.avg_waiting_time;
+            double utilization = entry.second.cpu_utilization;
+            double throughput = entry.second.throughput;
+    
+            // Best algorithm (lowest waiting time, prefers higher CPU efficiency & throughput in case of tie)
+            if (waiting_time < min_waiting_time || 
+               (waiting_time == min_waiting_time && utilization > max_utilization) ||
+               (waiting_time == min_waiting_time && utilization == max_utilization && throughput > max_throughput)) 
+            {
+                min_waiting_time = waiting_time;
+                max_utilization = utilization;
+                max_throughput = throughput;
+                best_algo = algo;
+            }
+    
+            // Worst algorithm (highest waiting time, prefers lower CPU efficiency in case of tie)
+            if (waiting_time > max_waiting_time || 
+               (waiting_time == max_waiting_time && utilization < min_utilization)) 
+            {
+                max_waiting_time = waiting_time;
+                min_utilization = utilization;
+                worst_algo = algo;
+            }
+    
+            // Track worst CPU utilization
+            if (utilization < min_utilization) {
+                min_utilization = utilization;
+                worst_util_algo = algo;
+            }
+    
+            // Track worst throughput
+            if (throughput < min_throughput) {
+                min_throughput = throughput;
+                worst_throughput_algo = algo;
+            }
+        }
+    
+        // Calculate dynamic threshold for response time classification
+        double avg_waiting_threshold = (min_waiting_time + max_waiting_time) / 2;
+    
+        // Display comparison results
+        cout << "\n========================================\n";
+        cout << "   Properties & Performance Comparison \n";
+        cout << "========================================\n";
+    
+        for (auto &entry : algorithmMetrics) {
+            cout << entry.first << " -> ";
+    
+            // Response Time Classification
+            if (entry.second.avg_waiting_time == min_waiting_time)
+                cout << "  Fastest Response, ";
+            else if (entry.second.avg_waiting_time < avg_waiting_threshold)
+                cout << "  Optimized Response Time, ";
+            else
+                cout << "  Stable Execution, ";
+    
+            // CPU Utilization Classification
+            if (entry.second.cpu_utilization == max_utilization)
+                cout << "  Maximum CPU Efficiency, ";
+            else if (entry.second.cpu_utilization > 50)
+                cout << "  Balanced CPU Load, ";
+            else
+                cout << "  Energy Efficient, ";
+    
+            // Throughput Classification
+            if (entry.second.throughput == max_throughput)
+                cout << "  Best Throughput!";
+            else
+                cout << "  Reliable Performance!";
+    
+            cout << '\n';
+        }
+    
+        // Display the best and worst algorithms
+        cout << "\n Best Performing Algorithm: **" << best_algo << "** (Lowest Waiting Time + Efficiency)\n";
+        cout << " Slowest Algorithm: **" << worst_algo << "** (Highest Waiting Time)\n";
+    
+        // Handle equal CPU utilization
+        if (min_utilization == max_utilization) {
+            cout << " All algorithms have equal CPU Utilization: " << min_utilization << "%\n";
+        } else {
+            cout << " Lowest CPU Utilization: **" << worst_util_algo << "** (" << min_utilization << "%)\n";
+        }
+    
+        // Handle equal throughput
+        if (min_throughput == max_throughput) {
+            cout << " All algorithms have equal Throughput: " << min_throughput << " processes/unit time\n";
+        } else {
+            cout << " Worst Throughput: **" << worst_throughput_algo << "** (" << min_throughput << " processes/unit time)\n";
+        }
+    
+        cout << "========================================\n";
     }
+    else
+    {
+        for (int idx = 0; idx < (int)algorithms.size(); idx++)
+        {
+            clear_timeline();
+            execute_algorithm(algorithms[idx].first, algorithms[idx].second, operation);
+
+            if (operation == TRACE)
+                printTimeline(idx);
+            else if (operation == SHOW_STATISTICS)
+                printStats(idx);
+
+            cout << "\n";
+        }
+    }
+
     return 0;
 }
