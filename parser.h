@@ -8,7 +8,7 @@ using namespace std;
 
 
 string operation;
-bool coloredVisualization = false; // Flag to control whether to use colored visualization
+bool coloredVisualization = false; 
 int last_instant, process_count;
 vector<pair<char, int>> algorithms;
 vector<tuple<string,int,int>> processes;
@@ -16,7 +16,6 @@ vector<vector<char>>timeline;
 unordered_map<string,int>processToIndex;
 
 
-//Results
 
 vector<int>finishTime;
 vector<int>turnAroundTime;
@@ -86,7 +85,7 @@ void parse()
     cout << "Enter operation mode (trace/stats/compare): ";
     cin >> operation;
 
-    // Add option for colored visualization
+    
     if (operation == "trace") {
         cout << "Choose visualization type (normal/colored): ";
         cin >> visualizationMode;
@@ -105,7 +104,7 @@ void parse()
 
     parse_algorithms(algorithm_chunk);
     parse_processes();
-    // Call the new function
+    
 
     finishTime.resize(process_count);
     turnAroundTime.resize(process_count);
@@ -121,4 +120,4 @@ void parse()
 }
 
 
-#endif // PARSER_H_INCLUDED
+#endif 
