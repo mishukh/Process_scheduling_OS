@@ -1,4 +1,4 @@
-# CPU Scheduler Simulator
+# CPU Scheduling process simulate and analysis  in C++
 
 ## Project Description
 This project is a comprehensive CPU scheduling simulator that implements and visualizes multiple CPU scheduling algorithms. It allows users to compare the performance of different scheduling strategies through metrics like average waiting time, CPU utilization, and throughput.
